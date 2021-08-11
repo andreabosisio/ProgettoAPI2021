@@ -26,7 +26,7 @@ typedef struct rb_node {
 typedef struct vertex {
     int index;
     int *neighbors;
-    int distFromSource;
+    unsigned int distFromSource;
     struct vertex *prev;
 } vertex_t;
 
@@ -97,7 +97,7 @@ void compute() {
     char cmd[MAX_CMD_LENGTH];
     int graphID = -1;
 
-    while (fscanf(stdin, "%s", cmd) == 1) {
+    while (fscanf(stdin, "%s", cmd) != EOF) {
         if (cmd[0] == ADD_GRAPH_CMD) {
             readGraph();
             graphID = graphID + 1;
@@ -122,10 +122,6 @@ void printTopKGraphs(rb_node_t node) {
 
 void dijkstra(int graphID) {
 
-    if (graphID == 22) {
-        printf("22\n");
-    }
-
     heap_t *q = (heap_t *) malloc(sizeof(heap_t));
     q->vertexes = currVertexes;
     for (int i = 0; i < d; i++) {
@@ -147,7 +143,7 @@ void dijkstra(int graphID) {
         minHeapify(q, i);
     }
 
-    int bestPathsLengthSum = 0;
+    unsigned int bestPathsLengthSum = 0;
 
     /*
     for(int i = 0; i < d; i++) {
@@ -161,7 +157,7 @@ void dijkstra(int graphID) {
             if (i != u.index) {
                 vertex_t *neighbor = getVertexByIndex(q, i);
                 if (neighbor != NULL && u.neighbors[i] != 0) {
-                    int alt = u.distFromSource + u.neighbors[i];
+                    unsigned int alt = u.distFromSource + u.neighbors[i];
                     if (alt < neighbor->distFromSource) {
                         neighbor->distFromSource = alt;
                         neighbor->prev = &u;
@@ -192,7 +188,8 @@ void dijkstra(int graphID) {
 }
 
 void updateRank(int graphID, int costSum) {
-    printf("adding graphID: %d with total cost: %d\n", graphID, costSum);
+    printf("PESO GRAFO[%d]: %d\n", graphID, costSum);
+
 }
 
 vertex_t *getVertexByIndex(heap_t *heap, int index) {
