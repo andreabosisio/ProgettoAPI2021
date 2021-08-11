@@ -25,7 +25,7 @@ typedef struct rb_node {
 
 typedef struct vertex {
     int index;
-    int *neighbor;
+    int *neighbors;
     int distFromSource;
     struct vertex *prev;
 } vertex_t;
@@ -51,11 +51,11 @@ void printTopKGraphs(rb_node_t node);
 
 void buildHeap(heap_t heap);
 
-void minHeapify(vertex_t a[], int pos);
+void minHeapify(heap_t *heap, int pos);
 
-vertex_t *deleteMin(heap_t q);
+vertex_t deleteMin(heap_t *heap);
 
-struct vertex getVertexByIndex(heap_t heap, int index);
+struct vertex getVertexByIndex(heap_t *heap, int index);
 
 void updateRank(int graphID, int costSum);
 
@@ -124,40 +124,48 @@ void printTopKGraphs(rb_node_t node) {
 }
 
 void dijkstra(int graphID) {
-    heap_t q;
-    q.vertexes = currVertexes;
+    heap_t *q = (heap_t*) malloc(sizeof(heap_t));
+    q->vertexes = currVertexes;
     for (int i = 0; i < d; i++) {
-        q.vertexes[i].index = i;
+        q->vertexes[i].index = i;
 
         if (i == 0) {
-            q.vertexes[i].distFromSource = MIN_DIST;
+            q->vertexes[i].distFromSource = MIN_DIST;
+        } else {
+            q->vertexes[i].distFromSource = MAX_DIST;
         }
-        q.vertexes[i].distFromSource = MAX_DIST;
 
-        q.vertexes[i].neighbor = currGraph[i];
+        q->vertexes[i].neighbors = currGraph[i];
 
-        q.vertexes[i].prev = NULL;
+        q->vertexes[i].prev = NULL;
 
-        q.size = d;
+        q->size = d;
     }
     for (int i = 0; i < floor(d) / 2; i++) {
-        minHeapify(q.vertexes, i);
+        minHeapify(q, i);
     }
 
     int bestPathsLengthSum = 0;
 
-    while (q.size > 0) {
-        vertex_t u = *deleteMin(q);
-        for (int i = 0; i < d; i++) {
-            int alt = u.distFromSource + u.neighbor[i];
+    /*
+    for(int i = 0; i < d; i++) {
+        printf("vertexID: %d, dist: %d\n", q.vertexes[i].index, q.vertexes[i].distFromSource);
+    }
+    */
+
+    while (q->size > 0) {
+        vertex_t u = deleteMin(q);
+        for (int i = 1; i < d; i++) {
             vertex_t neighbor = getVertexByIndex(q, i);
+            int alt = u.distFromSource + u.neighbors[i];
             if (alt < neighbor.distFromSource) {
                 neighbor.distFromSource = alt;
                 neighbor.prev = &u;
-                minHeapify(q.vertexes, neighbor.index);
-                //decreasePriority(q, neighbor, alt); maybe done with minHeapify
+                minHeapify(q, neighbor.index);
+                //decreasePriority(q, neighbors, alt); maybe done with minHeapify
             }
         }
+        printf("vertexID: %d has distance from source of: %d\n", u.index, u.distFromSource);
         bestPathsLengthSum = bestPathsLengthSum + u.distFromSource;
     }
 
@@ -174,46 +182,65 @@ void dijkstra(int graphID) {
 }
 
 void updateRank(int graphID, int costSum) {
-    printf("adding graphID: %d with cost: %d\n", graphID, costSum);
+    printf("adding graphID: %d with cost: %d\n\n\n", graphID, costSum);
 }
 
-struct vertex getVertexByIndex(heap_t heap, int index) {
-    for (int i = 0; i < heap.size; i++) {
-        if (heap.vertexes[i].index == index) {
-            return heap.vertexes[i];
+struct vertex getVertexByIndex(heap_t *heap, int index) {
+    for (int i = 0; i < heap->size; i++) {
+        if (heap->vertexes[i].index == index) {
+            return heap->vertexes[i];
         }
     }
 }
 
-vertex_t *deleteMin(heap_t q) {
-    if (q.size < 1)
-        return NULL;
+vertex_t deleteMin(heap_t *heap) {
 
-    vertex_t bestVertex = q.vertexes[0];
-    q.vertexes[0] = q.vertexes[q.size - 1];
-    q.size = q.size - 1;
-    minHeapify(q.vertexes, 0);
+    /*
+    printf("\n\n-----DELETING MIN-----\n");
+    for (int i = 0; i < heap->size; ++i) {
+        printf("vertexID: %d, dist: %d\n", heap->vertexes[i].index, heap->vertexes[i].distFromSource);
+    }
+     */
 
-    return &bestVertex;
+    vertex_t bestVertex = heap->vertexes[0];
+
+    /*
+    printf("currMin index: %d\n", bestVertex.index);
+    printf("deleting...\n");
+     */
+
+    heap->vertexes[0] = heap->vertexes[heap->size - 1];
+
+    heap->size--;
+    minHeapify(heap, 0);
+
+    /*
+    for (int i = 0; i < heap->size; ++i) {
+        printf("vertexID: %d, dist: %d\n", heap->vertexes[i].index, heap->vertexes[i].distFromSource);
+    }
+     */
+
+    return bestVertex;
 }
 
-void minHeapify(vertex_t a[], int pos) {
+void minHeapify(heap_t *heap, int pos) {
+
     int left = 2 * pos + 1;
     int right = 2 * pos + 2;
     int minPos = pos;
 
-    if (left <= d && a[left].distFromSource < a[pos].distFromSource)
+    if (left < heap->size && heap->vertexes[left].distFromSource < heap->vertexes[pos].distFromSource)
         minPos = left;
 
-    if (right <= d && a[right].distFromSource < a[minPos].distFromSource)
+    if (right < heap->size && heap->vertexes[right].distFromSource < heap->vertexes[minPos].distFromSource)
         minPos = right;
 
     if (pos != minPos) {
-        vertex_t temp = a[pos];
-        a[pos] = a[minPos];
-        a[minPos] = temp;
+        vertex_t temp = heap->vertexes[pos];
+        heap->vertexes[pos] = heap->vertexes[minPos];
+        heap->vertexes[minPos] = temp;
 
-        minHeapify(a, minPos);
+        minHeapify(heap, minPos);
     }
 }
 
