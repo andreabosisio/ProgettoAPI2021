@@ -18,7 +18,8 @@
 typedef struct rb_node {
     char color;
     int graphID;
-    int bestPathsLengthSum;
+    int bestDistsSum;
+    struct rb_node *father;
     struct rb_node *left;
     struct rb_node *right;
 } rb_node_t;
@@ -47,7 +48,7 @@ void skipGraph();
 
 void dijkstra(int graphID);
 
-void printTopKGraphs(rb_node_t node);
+void printTopKGraphs(rb_node_t *n);
 
 void buildHeap(heap_t heap);
 
@@ -59,7 +60,17 @@ vertex_t deleteMin(heap_t *heap);
 
 vertex_t *getVertexByIndex(heap_t *heap, int index);
 
-void updateRank(int graphID, int costSum);
+void updateRank(int graphID, int bestDistsSum);
+
+void insert_case1(rb_node_t *n);
+void insert_case2(rb_node_t *n);
+void insert_case3(rb_node_t *n);
+void insert_case4(rb_node_t *n);
+void insert_case5(rb_node_t *n);
+
+void leftRotate(struct rb_node *n);
+
+void rightRotate(struct rb_node *n);
 
 // d := number of nodes, k := rank length
 static int d, k;
@@ -75,7 +86,11 @@ int main() {
 
     getParameters();
 
-    rank = (rb_node_t *) malloc(k * sizeof(rb_node_t));
+    /*rank = (rb_node_t *) malloc(k * sizeof(rb_node_t));
+    for (int i = 0; i < k; i++) {
+        rank[i].bestDistsSum = -1;
+    }
+     */
 
     currGraph = (int **) malloc(d * sizeof(int *));
     for (int i = 0; i < d; i++) {
@@ -103,21 +118,20 @@ void compute() {
             graphID = graphID + 1;
             dijkstra(graphID);
         } else if (cmd[0] == TOPK_CMD) { //maybe not required. just else branch
-            printTopKGraphs(*rank);
+            printTopKGraphs(rank);
         } else {
             printf("invalid cmd\n");
         }
     }
 }
 
-void printTopKGraphs(rb_node_t node) {
-    printf("topk\n");
-    /*
-    printf("%d ", node.graphID);
-    printTopKGraphs(*node.left);
-    printTopKGraphs(*node.right);
-    return;
-     */
+void printTopKGraphs(rb_node_t *n) {
+    if (n == NULL)
+        return;
+    printf("---topk---\n");
+    printf("%d ", rank->graphID);
+    printTopKGraphs(n->left);
+    printTopKGraphs(n->right);
 }
 
 void dijkstra(int graphID) {
@@ -143,7 +157,7 @@ void dijkstra(int graphID) {
         minHeapify(q, i);
     }
 
-    unsigned int bestPathsLengthSum = 0;
+    unsigned int bestDistsSum = 0;
 
     /*
     for(int i = 0; i < d; i++) {
@@ -172,10 +186,10 @@ void dijkstra(int graphID) {
             u.distFromSource = 0;
         }
         //printf("vertexID: %d has distance from source of: %d\n", u.index, u.distFromSource);
-        bestPathsLengthSum = bestPathsLengthSum + u.distFromSource;
+        bestDistsSum = bestDistsSum + u.distFromSource;
     }
 
-    updateRank(graphID, bestPathsLengthSum);
+    updateRank(graphID, bestDistsSum);
 
     //test
     /*
@@ -187,10 +201,135 @@ void dijkstra(int graphID) {
      */
 }
 
-void updateRank(int graphID, int costSum) {
-    printf("PESO GRAFO[%d]: %d\n", graphID, costSum);
+void updateRank(int graphID, int bestDistsSum) {
+    printf("PESO GRAFO[%d]: %d\n", graphID, bestDistsSum);
 
+    rb_node_t *toAdd = (rb_node_t *) malloc(sizeof(rb_node_t));
+    toAdd->graphID = graphID;
+    toAdd->bestDistsSum = bestDistsSum;
+    toAdd->color = RED;
+
+    if(rank == NULL) {
+        rank = toAdd;
+    }
+
+    rb_node_t *y = NULL;
+    rb_node_t *x = rank;
+
+    while(x != NULL) {
+        y = x;
+        if(bestDistsSum < x->bestDistsSum) {
+            x = x->left;
+        } else if(bestDistsSum == x->bestDistsSum) {
+            return;
+        } else {
+            x = x->right;
+        }
+        toAdd->father = y;
+        if(y == NULL) {
+            rank = toAdd;
+        } else if(toAdd->bestDistsSum < y->bestDistsSum) {
+            y->left = toAdd;
+        } else {
+            y->right = toAdd;
+        }
+    }
 }
+
+rb_node_t *grandparent(rb_node_t *n) {
+    return n->father->father;
+}
+
+rb_node_t *uncle(rb_node_t *n) {
+    if (n->father == grandparent(n)->left)
+        return grandparent(n)->right;
+    else
+        return grandparent(n)->left;
+}
+
+void insert_case1(rb_node_t *n) {
+    if (n->father == NULL)
+        n->color = BLACK;
+    else
+        insert_case2(n);
+}
+
+void insert_case2(rb_node_t *n) {
+    if (n->father->color == BLACK)
+        return; /* Tree is still valid */
+    else
+        insert_case3(n);
+}
+
+void insert_case3(rb_node_t *n) {
+    if (uncle(n) != NULL && uncle(n)->color == RED) {
+        n->father->color = BLACK;
+        uncle(n)->color = BLACK;
+        grandparent(n)->color = RED;
+        insert_case1(grandparent(n));
+    }
+    else
+        insert_case4(n);
+}
+
+void insert_case4(rb_node_t *n) {
+    if (n == n->father->right && n->father == grandparent(n)->left) {
+        leftRotate(n->father);
+        n = n->left;
+    } else if (n == n->father->left && n->father == grandparent(n)->right) {
+        rightRotate(n->father);
+        n = n->right;
+    }
+    insert_case5(n);
+}
+
+void rightRotate(struct rb_node *n) {
+    rb_node_t *y = n->left;
+    n->left = y->right;
+    if(y->right != NULL) {
+        y->right->father = n;
+    }
+    y->father = n->father;
+    if(n->father == NULL) {
+        rank = y;
+    } else if (n == n->father->left) {
+        n->father->left = y;
+    } else {
+        n->father->right = y;
+    }
+    y->right = n;
+    n->father = y;
+}
+
+void leftRotate(struct rb_node *n) {
+    rb_node_t *y = n->right;
+    n->right = y->left;
+    if(y->left != NULL) {
+        y->left->father = n;
+    }
+    y->father = n->father;
+    if(n->father == NULL) {
+        rank = y;
+    } else if (n == n->father->left) {
+        n->father->left = y;
+    } else {
+        n->father->right = y;
+    }
+    y->left = n;
+    n->father = y;
+}
+
+void insert_case5(rb_node_t *n) {
+    n->father->color = BLACK;
+    grandparent(n)->color = RED;
+    if (n == n->father->left && n->father == grandparent(n)->left) {
+        rightRotate(grandparent(n));
+    } else {
+        /* Here, n == n->father->right && n->father == grandparent(n)->right */
+        leftRotate(grandparent(n));
+    }
+}
+
 
 vertex_t *getVertexByIndex(heap_t *heap, int index) {
     for (int i = 0; i < heap->size; i++) {
@@ -264,7 +403,7 @@ void readGraph() {
             if (currPathLength > maxInitPathLength)
                 maxInitPathLength = currPathLength;
         }
-        if (maxInitPathLength > getLastInRanking().bestPathsLengthSum)
+        if (maxInitPathLength > getLastInRanking().bestDistsSum)
             skipGraph();
         i = 1;
     }
