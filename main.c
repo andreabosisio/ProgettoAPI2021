@@ -51,11 +51,13 @@ void printTopKGraphs(rb_node_t node);
 
 void buildHeap(heap_t heap);
 
+void printHeap(heap_t *heap);
+
 void minHeapify(heap_t *heap, int pos);
 
 vertex_t deleteMin(heap_t *heap);
 
-struct vertex getVertexByIndex(heap_t *heap, int index);
+vertex_t *getVertexByIndex(heap_t *heap, int index);
 
 void updateRank(int graphID, int costSum);
 
@@ -106,11 +108,6 @@ void compute() {
             printf("invalid cmd\n");
         }
     }
-
-    if (feof(stdin)) {
-        return;
-    }
-
 }
 
 void printTopKGraphs(rb_node_t node) {
@@ -124,7 +121,12 @@ void printTopKGraphs(rb_node_t node) {
 }
 
 void dijkstra(int graphID) {
-    heap_t *q = (heap_t*) malloc(sizeof(heap_t));
+
+    if (graphID == 22) {
+        printf("22\n");
+    }
+
+    heap_t *q = (heap_t *) malloc(sizeof(heap_t));
     q->vertexes = currVertexes;
     for (int i = 0; i < d; i++) {
         q->vertexes[i].index = i;
@@ -155,17 +157,25 @@ void dijkstra(int graphID) {
 
     while (q->size > 0) {
         vertex_t u = deleteMin(q);
-        for (int i = 1; i < d; i++) {
-            vertex_t neighbor = getVertexByIndex(q, i);
-            int alt = u.distFromSource + u.neighbors[i];
-            if (alt < neighbor.distFromSource) {
-                neighbor.distFromSource = alt;
-                neighbor.prev = &u;
-                minHeapify(q, neighbor.index);
-                //decreasePriority(q, neighbors, alt); maybe done with minHeapify
+        for (int i = 0; i < d; i++) {
+            if (i != u.index) {
+                vertex_t *neighbor = getVertexByIndex(q, i);
+                if (neighbor != NULL && u.neighbors[i] != 0) {
+                    int alt = u.distFromSource + u.neighbors[i];
+                    if (alt < neighbor->distFromSource) {
+                        neighbor->distFromSource = alt;
+                        neighbor->prev = &u;
+                        //review
+                        minHeapify(q, 0);
+                        //decreasePriority(q, neighbors, alt); maybe done with minHeapify
+                    }
+                }
             }
         }
-        printf("vertexID: %d has distance from source of: %d\n", u.index, u.distFromSource);
+        if (u.distFromSource == MAX_DIST) { //u is unreachable
+            u.distFromSource = 0;
+        }
+        //printf("vertexID: %d has distance from source of: %d\n", u.index, u.distFromSource);
         bestPathsLengthSum = bestPathsLengthSum + u.distFromSource;
     }
 
@@ -182,15 +192,16 @@ void dijkstra(int graphID) {
 }
 
 void updateRank(int graphID, int costSum) {
-    printf("adding graphID: %d with cost: %d\n\n\n", graphID, costSum);
+    printf("adding graphID: %d with total cost: %d\n", graphID, costSum);
 }
 
-struct vertex getVertexByIndex(heap_t *heap, int index) {
+vertex_t *getVertexByIndex(heap_t *heap, int index) {
     for (int i = 0; i < heap->size; i++) {
         if (heap->vertexes[i].index == index) {
-            return heap->vertexes[i];
+            return &heap->vertexes[i];
         }
     }
+    return NULL;
 }
 
 vertex_t deleteMin(heap_t *heap) {
@@ -285,5 +296,12 @@ rb_node_t getLastInRanking() {
     }
 
     return currNode;
+}
+
+void printHeap(heap_t *heap) {
+    for (int i = 0; i < heap->size; i++) {
+        printf("v. index: %d has dist: %d\n", heap->vertexes[i].index, heap->vertexes[i].distFromSource);
+    }
+    printf("------\n\n");
 }
 
