@@ -3,26 +3,12 @@
 #include <math.h>
 #include <limits.h>
 
-#define BLACK 'B'
-#define RED 'R'
-#define LEFT 0
-#define RIGHT 1
-
 #define MAX_CMD_LENGTH 10
 #define ADD_GRAPH_CMD 'A'
 #define TOPK_CMD 'T'
 
 #define MIN_DIST 0
 #define MAX_DIST INT_MAX
-
-typedef struct rb_node {
-    char color;
-    int graphID;
-    int bestDistsSum;
-    struct rb_node *father;
-    struct rb_node *left;
-    struct rb_node *right;
-} rb_node_t;
 
 typedef struct vertex {
     int index;
@@ -36,49 +22,54 @@ typedef struct vertexHeap {
     int size;
 } vertexHeap_t;
 
+typedef struct rankableGraph {
+    int id;
+    int distSum;
+} rankableGraph_t;
+
+typedef struct rankHeap {
+    rankableGraph_t *rank;
+    int size;
+} rankHeap_t;
+
 void getParameters();
 
 void compute();
 
 void readGraph();
 
-rb_node_t *getLastInRanking();
-
 void skipGraph();
 
 void dijkstra(int graphID);
 
-void printTopKGraphs(rb_node_t *n);
+void printTopKGraphIDs();
 
 void buildHeap(vertexHeap_t heap);
 
 void printHeap(vertexHeap_t *heap);
 
-void minHeapify(vertexHeap_t *heap, int pos);
+void minVertexHeapify(vertexHeap_t *heap, int pos);
 
-vertex_t deleteMin(vertexHeap_t *heap);
+vertex_t deleteMinVertex(vertexHeap_t *heap);
 
 vertex_t *getVertexByIndex(vertexHeap_t *heap, int index);
 
 void updateRank(int graphID, int bestDistsSum);
 
-void insert_case1(rb_node_t *n);
-void insert_case2(rb_node_t *n);
-void insert_case3(rb_node_t *n);
-void insert_case4(rb_node_t *n);
-void insert_case5(rb_node_t *n);
+int getLastRankedDist();
 
-void leftRotate(struct rb_node *n);
+void maxGraphHeapify(int pos);
 
-void rightRotate(struct rb_node *n);
+int parent(int i);
+
+void swap(rankableGraph_t *x, rankableGraph_t *y);
 
 // d := number of nodes, k := rank length
 static int d, k;
 
-static rb_node_t *rank;
+static rankHeap_t *rankHeap;
 
 static int **currGraph;
-static int num_rankedGraphs = 0;
 
 static vertex_t *currVertexes;
 
@@ -86,11 +77,9 @@ int main() {
 
     getParameters();
 
-    /*rank = (rb_node_t *) malloc(k * sizeof(rb_node_t));
-    for (int i = 0; i < k; i++) {
-        rank[i].bestDistsSum = -1;
-    }
-     */
+    rankHeap = (rankHeap_t *) malloc(sizeof(rankHeap_t));
+    rankHeap->rank = (rankableGraph_t *) malloc((k) * sizeof(rankableGraph_t));
+    rankHeap->size = 0;
 
     currGraph = (int **) malloc(d * sizeof(int *));
     for (int i = 0; i < d; i++) {
@@ -119,7 +108,7 @@ void compute() {
             graphID = graphID + 1;
             dijkstra(graphID);
         } else if (cmd[0] == TOPK_CMD) { //maybe not required. just else branch
-            printTopKGraphs(rank);
+            printTopKGraphIDs(rankHeap);
             printf("\n");
         } else {
             printf("invalid cmd\n");
@@ -127,13 +116,11 @@ void compute() {
     }
 }
 
-void printTopKGraphs(rb_node_t *n) {
-    if (n == NULL){
-        return;
+void printTopKGraphIDs() {
+    for (int i = 0; i < k; i++) {
+        printf("%d ", rankHeap->rank[i].id);
     }
-    printf("%d ", n->bestDistsSum);
-    printTopKGraphs(n->left);
-    printTopKGraphs(n->right);
+    printf("\n");
 }
 
 void dijkstra(int graphID) {
@@ -155,8 +142,8 @@ void dijkstra(int graphID) {
 
         q->size = d;
     }
-    for (int i = 0; i < floor(d) / 2; i++) {
-        minHeapify(q, i);
+    for (int i = floor(d/2); i > 0; i--) {
+        minVertexHeapify(q, i);
     }
 
     unsigned int bestDistsSum = 0;
@@ -168,7 +155,7 @@ void dijkstra(int graphID) {
     */
 
     while (q->size > 0) {
-        vertex_t u = deleteMin(q);
+        vertex_t u = deleteMinVertex(q);
         for (int i = 0; i < d; i++) {
             if (i != u.index) {
                 vertex_t *neighbor = getVertexByIndex(q, i);
@@ -178,7 +165,7 @@ void dijkstra(int graphID) {
                         neighbor->distFromSource = alt;
                         neighbor->prev = &u;
                         //review
-                        minHeapify(q, 0);
+                        minVertexHeapify(q, 0);
                         //decreasePriority(q, neighbors, alt); maybe done with minHeapify
                     }
                 }
@@ -206,142 +193,68 @@ void dijkstra(int graphID) {
 void updateRank(int graphID, int bestDistsSum) {
     //printf("PESO GRAFO[%d]: %d\n", graphID, bestDistsSum);
 
-    num_rankedGraphs++;
+    if(bestDistsSum > getLastRankedDist()) {
+        return;
+    }
 
-    rb_node_t *toAdd = (rb_node_t *) malloc(sizeof(rb_node_t));
-    toAdd->graphID = graphID;
-    toAdd->bestDistsSum = bestDistsSum;
-    toAdd->color = RED;
-    toAdd->father = NULL;
-    toAdd->left = NULL;
-    toAdd->right = NULL;
+    rankableGraph_t* toAdd = (rankableGraph_t *) malloc(sizeof(rankableGraph_t));
+    toAdd->id = graphID;
+    toAdd->distSum = bestDistsSum;
 
-    rb_node_t *y = NULL;
-    rb_node_t *x = rank;
-
-    while(x != NULL) {
-        y = x;
-        if (bestDistsSum < x->bestDistsSum) {
-            x = x->left;
-        } else if (bestDistsSum == x->bestDistsSum) {
-            break;
-        } else {
-            x = x->right;
+    if (rankHeap->size >= k) {
+        //free(&rankHeap->rank[0]);
+        rankHeap->rank[0] = *toAdd;
+        maxGraphHeapify(0);
+    } else {
+        rankHeap->size++;
+        rankHeap->rank[rankHeap->size - 1] = *toAdd;
+        int i = rankHeap->size - 1;
+        while (i > 0 && rankHeap->rank[parent(i)].distSum < rankHeap->rank[i].distSum) {
+            swap(&rankHeap->rank[parent(i)], &rankHeap->rank[i]);
+            i = parent(i);
         }
     }
-    toAdd->father = y;
-    if(y == NULL) {
-        rank = toAdd;
-    } else if(toAdd->bestDistsSum < y->bestDistsSum) {
-        y->left = toAdd;
-    } else {
-        y->right = toAdd;
-    }
 
-    insert_case1(toAdd);
-
-    if(num_rankedGraphs > k) {
-        //todo delete the max-dist node
-        //free(getLastInRanking());
-        //num_rankedGraphs--;
-    }
     //printTopKGraphs(rank);
 }
 
-rb_node_t *grandparent(rb_node_t *n) {
-    return n->father->father;
+void swap(rankableGraph_t *x, rankableGraph_t *y) {
+    rankableGraph_t temp = *x;
+    *x = *y;
+    *y = temp;
 }
 
-rb_node_t *uncle(rb_node_t *n) {
-    if (n->father == grandparent(n)->left)
-        return grandparent(n)->right;
-    else
-        return grandparent(n)->left;
+int parent(int i) {
+    return floor(i/2);
 }
 
-void insert_case1(rb_node_t *n) {
-    if (n->father == NULL)
-        n->color = BLACK;
-    else
-        insert_case2(n);
-}
+void maxGraphHeapify(int pos) {
 
-void insert_case2(rb_node_t *n) {
-    if (n->father->color == BLACK)
-        return; /* Tree is still valid */
-    else
-        insert_case3(n);
-}
+    int left = 2 * pos + 1;
+    int right = 2 * pos + 2;
+    int maxPos = pos;
 
-void insert_case3(rb_node_t *n) {
-    if (uncle(n) != NULL && uncle(n)->color == RED) {
-        n->father->color = BLACK;
-        uncle(n)->color = BLACK;
-        grandparent(n)->color = RED;
-        insert_case1(grandparent(n));
+    if (left <= rankHeap->size && rankHeap->rank[left].distSum > rankHeap->rank[pos].distSum) {
+        maxPos = left;
     }
-    else
-        insert_case4(n);
+
+    if(right <= rankHeap->size && rankHeap->rank[right].distSum > rankHeap->rank[maxPos].distSum) {
+        maxPos = right;
+    }
+
+    if(maxPos != pos) {
+        swap(&rankHeap->rank[pos], &rankHeap->rank[maxPos]);
+        maxGraphHeapify(maxPos);
+    }
+
 }
 
-void insert_case4(rb_node_t *n) {
-    if (n == n->father->right && n->father == grandparent(n)->left) {
-        leftRotate(n->father);
-        n = n->left;
-    } else if (n == n->father->left && n->father == grandparent(n)->right) {
-        rightRotate(n->father);
-        n = n->right;
+int getLastRankedDist() {
+    if (rankHeap->size == 0) {
+        return MAX_DIST;
     }
-    insert_case5(n);
+    return rankHeap->rank[0].distSum;
 }
-
-void rightRotate(struct rb_node *n) {
-    rb_node_t *y = n->left;
-    n->left = y->right;
-    if(y->right != NULL) {
-        y->right->father = n;
-    }
-    y->father = n->father;
-    if(n->father == NULL) {
-        rank = y;
-    } else if (n == n->father->left) {
-        n->father->left = y;
-    } else {
-        n->father->right = y;
-    }
-    y->right = n;
-    n->father = y;
-}
-
-void leftRotate(struct rb_node *n) {
-    rb_node_t *y = n->right;
-    n->right = y->left;
-    if(y->left != NULL) {
-        y->left->father = n;
-    }
-    y->father = n->father;
-    if(n->father == NULL) {
-        rank = y;
-    } else if (n == n->father->left) {
-        n->father->left = y;
-    } else {
-        n->father->right = y;
-    }
-    y->left = n;
-    n->father = y;
-}
-
-void insert_case5(rb_node_t *n) {
-    n->father->color = BLACK;
-    grandparent(n)->color = RED;
-    if (n == n->father->left && n->father == grandparent(n)->left) {
-        rightRotate(grandparent(n));
-    } else {
-        /* Here, n == n->father->right && n->father == grandparent(n)->right */
-        leftRotate(grandparent(n));
-    }
-}
-
 
 vertex_t *getVertexByIndex(vertexHeap_t *heap, int index) {
     for (int i = 0; i < heap->size; i++) {
@@ -352,7 +265,7 @@ vertex_t *getVertexByIndex(vertexHeap_t *heap, int index) {
     return NULL;
 }
 
-vertex_t deleteMin(vertexHeap_t *heap) {
+vertex_t deleteMinVertex(vertexHeap_t *heap) {
 
     /*
     printf("\n\n-----DELETING MIN-----\n");
@@ -371,7 +284,7 @@ vertex_t deleteMin(vertexHeap_t *heap) {
     heap->vertexes[0] = heap->vertexes[heap->size - 1];
 
     heap->size--;
-    minHeapify(heap, 0);
+    minVertexHeapify(heap, 0);
 
     /*
     for (int i = 0; i < heap->size; ++i) {
@@ -382,7 +295,7 @@ vertex_t deleteMin(vertexHeap_t *heap) {
     return bestVertex;
 }
 
-void minHeapify(vertexHeap_t *heap, int pos) {
+void minVertexHeapify(vertexHeap_t *heap, int pos) {
 
     int left = 2 * pos + 1;
     int right = 2 * pos + 2;
@@ -399,7 +312,7 @@ void minHeapify(vertexHeap_t *heap, int pos) {
         heap->vertexes[pos] = heap->vertexes[minPos];
         heap->vertexes[minPos] = temp;
 
-        minHeapify(heap, minPos);
+        minVertexHeapify(heap, minPos);
     }
 }
 
@@ -407,7 +320,7 @@ void readGraph() {
     int i = 0;
     int currPathLength;
 
-    if (num_rankedGraphs >= k) {
+    if (rankHeap->size >= k) {
         int maxInitPathLength = 0;
         for (int j = 0; j < d; j++) {
             scanf("%d,", &currPathLength);
@@ -415,7 +328,7 @@ void readGraph() {
             if (currPathLength > maxInitPathLength)
                 maxInitPathLength = currPathLength;
         }
-        if (maxInitPathLength > getLastInRanking()->bestDistsSum)
+        if (maxInitPathLength > getLastRankedDist())
             skipGraph();
         i = 1;
     }
@@ -434,16 +347,6 @@ void readGraph() {
 void skipGraph() {
     for (int i = 1; i < d; i++)
         fscanf(stdin, "%*[^\n]");
-}
-
-rb_node_t *getLastInRanking() {
-    rb_node_t *currNode = rank;
-
-    while (currNode->left != NULL) {
-        currNode = currNode->left;
-    }
-
-    return currNode;
 }
 
 void printHeap(vertexHeap_t *heap) {
