@@ -107,6 +107,10 @@ void compute() {
         if (cmd[0] == ADD_GRAPH_CMD) {
             readGraph();
             graphID = graphID + 1;
+            if(graphID == 1441768) {
+                graphID++;
+                graphID--;
+            }
             dijkstra(graphID);
         } else if (cmd[0] == TOPK_CMD) { //maybe not required. just else branch
             printTopKGraphIDs(rankHeap);
@@ -193,7 +197,7 @@ void dijkstra(int graphID) {
 void updateRank(int graphID, int bestDistsSum) {
     //printf("PESO GRAFO[%d]: %d\n", graphID, bestDistsSum);
 
-    if(bestDistsSum > getLastRankedDist()) {
+    if(bestDistsSum >= getLastRankedDist()) {
         return;
     }
 
@@ -209,7 +213,7 @@ void updateRank(int graphID, int bestDistsSum) {
         rankHeap->size++;
         rankHeap->rank[rankHeap->size - 1] = *toAdd;
         int i = rankHeap->size - 1;
-        while (i > 0 && rankHeap->rank[parent(i)].distSum < rankHeap->rank[i].distSum) {
+        while (i > 0 && rankHeap->rank[parent(i)].distSum <= rankHeap->rank[i].distSum) {
             swap(&rankHeap->rank[parent(i)], &rankHeap->rank[i]);
             i = parent(i);
         }
