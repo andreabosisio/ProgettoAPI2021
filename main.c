@@ -3,7 +3,7 @@
 #include <math.h>
 #include <limits.h>
 
-#define MAX_CMD_LENGTH 10
+#define MAX_CMD_LENGTH 20
 #define ADD_GRAPH_CMD 'A'
 #define TOPK_CMD 'T'
 
@@ -14,7 +14,7 @@ typedef struct vertex {
     int index;
     int *neighbors;
     unsigned int distFromSource;
-    struct vertex *prev;
+    //struct vertex *prev;
 } vertex_t;
 
 typedef struct vertexHeap {
@@ -44,9 +44,9 @@ void dijkstra(int graphID);
 
 void printTopKGraphIDs();
 
-void buildHeap(vertexHeap_t heap);
+//void buildHeap(vertexHeap_t heap);
 
-void printHeap(vertexHeap_t *heap);
+//void printHeap(vertexHeap_t *heap);
 
 void minVertexHeapify(vertexHeap_t *heap, int pos);
 
@@ -94,7 +94,7 @@ int main() {
 }
 
 void getParameters() {
-    scanf("%d %d", &d, &k);
+    scanf("%d %d\n", &d, &k);
 }
 
 void compute() {
@@ -102,14 +102,13 @@ void compute() {
     int graphID = -1;
 
     //todo error with EOF
-    while (fscanf(stdin, "%s", cmd) != EOF) {
+    while (fgets(cmd, MAX_CMD_LENGTH, stdin) != NULL) {
         if (cmd[0] == ADD_GRAPH_CMD) {
             readGraph();
             graphID = graphID + 1;
             dijkstra(graphID);
         } else if (cmd[0] == TOPK_CMD) { //maybe not required. just else branch
             printTopKGraphIDs(rankHeap);
-            printf("\n");
         } else {
             printf("invalid cmd\n");
         }
@@ -117,7 +116,7 @@ void compute() {
 }
 
 void printTopKGraphIDs() {
-    for (int i = 0; i < k; i++) {
+    for (int i = 0; i < rankHeap->size; i++) {
         printf("%d ", rankHeap->rank[i].id);
     }
     printf("\n");
@@ -138,7 +137,7 @@ void dijkstra(int graphID) {
 
         q->vertexes[i].neighbors = currGraph[i];
 
-        q->vertexes[i].prev = NULL;
+        //q->vertexes[i].prev = NULL;
 
         q->size = d;
     }
@@ -163,7 +162,7 @@ void dijkstra(int graphID) {
                     unsigned int alt = u.distFromSource + u.neighbors[i];
                     if (alt < neighbor->distFromSource) {
                         neighbor->distFromSource = alt;
-                        neighbor->prev = &u;
+                        //neighbor->prev = &u;
                         //review
                         minVertexHeapify(q, 0);
                         //decreasePriority(q, neighbors, alt); maybe done with minHeapify
@@ -234,11 +233,11 @@ void maxGraphHeapify(int pos) {
     int right = 2 * pos + 2;
     int maxPos = pos;
 
-    if (left <= rankHeap->size && rankHeap->rank[left].distSum > rankHeap->rank[pos].distSum) {
+    if (left < rankHeap->size && rankHeap->rank[left].distSum > rankHeap->rank[pos].distSum) {
         maxPos = left;
     }
 
-    if(right <= rankHeap->size && rankHeap->rank[right].distSum > rankHeap->rank[maxPos].distSum) {
+    if(right < rankHeap->size && rankHeap->rank[right].distSum > rankHeap->rank[maxPos].distSum) {
         maxPos = right;
     }
 
@@ -328,6 +327,7 @@ void readGraph() {
             if (currPathLength > maxInitPathLength)
                 maxInitPathLength = currPathLength;
         }
+        scanf("\n");
         if (maxInitPathLength > getLastRankedDist())
             skipGraph();
         i = 1;
@@ -341,6 +341,7 @@ void readGraph() {
             //printf("i: %d    j: %d      length: %d\n", i, j, val);
             currGraph[i][j] = val;
         }
+        scanf("\n");
     }
 }
 
@@ -349,6 +350,7 @@ void skipGraph() {
         fscanf(stdin, "%*[^\n]");
 }
 
+/*
 void printHeap(vertexHeap_t *heap) {
     for (int i = 0; i < heap->size; i++) {
         printf("v. index: %d has dist: %d\n", heap->vertexes[i].index, heap->vertexes[i].distFromSource);
@@ -356,3 +358,4 @@ void printHeap(vertexHeap_t *heap) {
     printf("------\n\n");
 }
 
+*/
