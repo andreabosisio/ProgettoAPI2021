@@ -94,7 +94,8 @@ int main() {
 }
 
 void getParameters() {
-    scanf("%d %d\n", &d, &k);
+    if(scanf("%d %d\n", &d, &k))
+        ;
 }
 
 void compute() {
@@ -322,12 +323,14 @@ void readGraph() {
     if (rankHeap->size >= k) {
         int maxInitPathLength = 0;
         for (int j = 0; j < d; j++) {
-            scanf("%d,", &currPathLength);
+            if(scanf("%d,", &currPathLength))
+                ;
             currGraph[0][j] = currPathLength;
             if (currPathLength > maxInitPathLength)
                 maxInitPathLength = currPathLength;
         }
-        scanf("\n");
+        if(scanf("\n"))
+            ;
         if (maxInitPathLength > getLastRankedDist())
             skipGraph();
         i = 1;
@@ -336,18 +339,21 @@ void readGraph() {
     int val;
     for (; i < d; i++) {
         for (int j = 0; j < d; j++) {
-            scanf("%d,", &val);
+            if(scanf("%d,", &val))
+                ;
             //test
             //printf("i: %d    j: %d      length: %d\n", i, j, val);
             currGraph[i][j] = val;
         }
-        scanf("\n");
+        if(scanf("\n"))
+            ;
     }
 }
 
 void skipGraph() {
     for (int i = 1; i < d; i++)
-        fscanf(stdin, "%*[^\n]");
+        if(fscanf(stdin, "%*[^\n]"))
+            ;
 }
 
 /*
