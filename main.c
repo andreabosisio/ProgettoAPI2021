@@ -31,10 +31,10 @@ typedef struct vertex {
     struct vertex *prev;
 } vertex_t;
 
-typedef struct heap {
+typedef struct vertexHeap {
     vertex_t *vertexes;
     int size;
-} heap_t;
+} vertexHeap_t;
 
 void getParameters();
 
@@ -50,15 +50,15 @@ void dijkstra(int graphID);
 
 void printTopKGraphs(rb_node_t *n);
 
-void buildHeap(heap_t heap);
+void buildHeap(vertexHeap_t heap);
 
-void printHeap(heap_t *heap);
+void printHeap(vertexHeap_t *heap);
 
-void minHeapify(heap_t *heap, int pos);
+void minHeapify(vertexHeap_t *heap, int pos);
 
-vertex_t deleteMin(heap_t *heap);
+vertex_t deleteMin(vertexHeap_t *heap);
 
-vertex_t *getVertexByIndex(heap_t *heap, int index);
+vertex_t *getVertexByIndex(vertexHeap_t *heap, int index);
 
 void updateRank(int graphID, int bestDistsSum);
 
@@ -138,7 +138,7 @@ void printTopKGraphs(rb_node_t *n) {
 
 void dijkstra(int graphID) {
 
-    heap_t *q = (heap_t *) malloc(sizeof(heap_t));
+    vertexHeap_t *q = (vertexHeap_t *) malloc(sizeof(vertexHeap_t));
     q->vertexes = currVertexes;
     for (int i = 0; i < d; i++) {
         q->vertexes[i].index = i;
@@ -343,7 +343,7 @@ void insert_case5(rb_node_t *n) {
 }
 
 
-vertex_t *getVertexByIndex(heap_t *heap, int index) {
+vertex_t *getVertexByIndex(vertexHeap_t *heap, int index) {
     for (int i = 0; i < heap->size; i++) {
         if (heap->vertexes[i].index == index) {
             return &heap->vertexes[i];
@@ -352,7 +352,7 @@ vertex_t *getVertexByIndex(heap_t *heap, int index) {
     return NULL;
 }
 
-vertex_t deleteMin(heap_t *heap) {
+vertex_t deleteMin(vertexHeap_t *heap) {
 
     /*
     printf("\n\n-----DELETING MIN-----\n");
@@ -382,7 +382,7 @@ vertex_t deleteMin(heap_t *heap) {
     return bestVertex;
 }
 
-void minHeapify(heap_t *heap, int pos) {
+void minHeapify(vertexHeap_t *heap, int pos) {
 
     int left = 2 * pos + 1;
     int right = 2 * pos + 2;
@@ -446,7 +446,7 @@ rb_node_t *getLastInRanking() {
     return currNode;
 }
 
-void printHeap(heap_t *heap) {
+void printHeap(vertexHeap_t *heap) {
     for (int i = 0; i < heap->size; i++) {
         printf("v. index: %d has dist: %d\n", heap->vertexes[i].index, heap->vertexes[i].distFromSource);
     }
