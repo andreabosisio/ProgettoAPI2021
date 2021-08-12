@@ -42,7 +42,7 @@ void compute();
 
 void readGraph();
 
-rb_node_t getLastInRanking();
+rb_node_t *getLastInRanking();
 
 void skipGraph();
 
@@ -78,7 +78,7 @@ static int d, k;
 static rb_node_t *rank;
 
 static int **currGraph;
-static int num_rankedGraphs;
+static int num_rankedGraphs = 0;
 
 static vertex_t *currVertexes;
 
@@ -112,6 +112,7 @@ void compute() {
     char cmd[MAX_CMD_LENGTH];
     int graphID = -1;
 
+    //todo error with EOF
     while (fscanf(stdin, "%s", cmd) != EOF) {
         if (cmd[0] == ADD_GRAPH_CMD) {
             readGraph();
@@ -119,6 +120,7 @@ void compute() {
             dijkstra(graphID);
         } else if (cmd[0] == TOPK_CMD) { //maybe not required. just else branch
             printTopKGraphs(rank);
+            printf("\n");
         } else {
             printf("invalid cmd\n");
         }
@@ -126,10 +128,10 @@ void compute() {
 }
 
 void printTopKGraphs(rb_node_t *n) {
-    if (n == NULL)
+    if (n == NULL){
         return;
-    printf("---topk---\n");
-    printf("%d ", rank->graphID);
+    }
+    printf("%d ", n->bestDistsSum);
     printTopKGraphs(n->left);
     printTopKGraphs(n->right);
 }
@@ -202,38 +204,48 @@ void dijkstra(int graphID) {
 }
 
 void updateRank(int graphID, int bestDistsSum) {
-    printf("PESO GRAFO[%d]: %d\n", graphID, bestDistsSum);
+    //printf("PESO GRAFO[%d]: %d\n", graphID, bestDistsSum);
+
+    num_rankedGraphs++;
 
     rb_node_t *toAdd = (rb_node_t *) malloc(sizeof(rb_node_t));
     toAdd->graphID = graphID;
     toAdd->bestDistsSum = bestDistsSum;
     toAdd->color = RED;
-
-    if(rank == NULL) {
-        rank = toAdd;
-    }
+    toAdd->father = NULL;
+    toAdd->left = NULL;
+    toAdd->right = NULL;
 
     rb_node_t *y = NULL;
     rb_node_t *x = rank;
 
     while(x != NULL) {
         y = x;
-        if(bestDistsSum < x->bestDistsSum) {
+        if (bestDistsSum < x->bestDistsSum) {
             x = x->left;
-        } else if(bestDistsSum == x->bestDistsSum) {
-            return;
+        } else if (bestDistsSum == x->bestDistsSum) {
+            break;
         } else {
             x = x->right;
         }
-        toAdd->father = y;
-        if(y == NULL) {
-            rank = toAdd;
-        } else if(toAdd->bestDistsSum < y->bestDistsSum) {
-            y->left = toAdd;
-        } else {
-            y->right = toAdd;
-        }
     }
+    toAdd->father = y;
+    if(y == NULL) {
+        rank = toAdd;
+    } else if(toAdd->bestDistsSum < y->bestDistsSum) {
+        y->left = toAdd;
+    } else {
+        y->right = toAdd;
+    }
+
+    insert_case1(toAdd);
+
+    if(num_rankedGraphs > k) {
+        //todo delete the max-dist node
+        //free(getLastInRanking());
+        //num_rankedGraphs--;
+    }
+    //printTopKGraphs(rank);
 }
 
 rb_node_t *grandparent(rb_node_t *n) {
@@ -403,7 +415,7 @@ void readGraph() {
             if (currPathLength > maxInitPathLength)
                 maxInitPathLength = currPathLength;
         }
-        if (maxInitPathLength > getLastInRanking().bestDistsSum)
+        if (maxInitPathLength > getLastInRanking()->bestDistsSum)
             skipGraph();
         i = 1;
     }
@@ -424,11 +436,11 @@ void skipGraph() {
         fscanf(stdin, "%*[^\n]");
 }
 
-rb_node_t getLastInRanking() {
-    rb_node_t currNode = *rank;
+rb_node_t *getLastInRanking() {
+    rb_node_t *currNode = rank;
 
-    while (currNode.left != NULL) {
-        currNode = *currNode.left;
+    while (currNode->left != NULL) {
+        currNode = currNode->left;
     }
 
     return currNode;
