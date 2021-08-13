@@ -106,7 +106,6 @@ void compute() {
     char cmd[MAX_CMD_LENGTH];
     int graphID = -1;
 
-    //todo error with EOF
     while (fgets(cmd, MAX_CMD_LENGTH, stdin) != NULL) {
         if (cmd[0] == ADD_GRAPH_CMD) {
             readGraph();
@@ -162,7 +161,6 @@ void dijkstra(int graphID) {
         vertex_t u = deleteMinVertex(q);
         for (int i = 0; i < d; i++) {
             if (i != u.index) {
-                //todo fix
                 int neighborPos = getPositionInQueueOf(q, i);
                 if(neighborPos != -1) {
                     vertex_t neighbor = q->vertexes[neighborPos];
@@ -171,9 +169,7 @@ void dijkstra(int graphID) {
                         if (alt < neighbor.distFromSource) {
                             neighbor.distFromSource = alt;
                             //neighbor->prev = &u;
-                            //fixme: i have to to indexInQueueOf(neighbor)
-                            decreasePriority(q, neighborPos,
-                                             alt);
+                            decreasePriority(q, neighborPos, alt);
                         }
                     }
                 }
