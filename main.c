@@ -121,7 +121,10 @@ void compute() {
 
 void printTopKGraphIDs() {
     for (int i = 0; i < rankHeap->size; i++) {
-        printf("%d ", rankHeap->rank[i].id);
+        if(i == rankHeap->size - 1)
+            printf("%d", rankHeap->rank[i].id);
+        else
+            printf("%d ", rankHeap->rank[i].id);
     }
     printf("\n");
 }
