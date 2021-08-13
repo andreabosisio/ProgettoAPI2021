@@ -162,22 +162,18 @@ void dijkstra(int graphID) {
 
     while (q->size > 0) {
         vertex_t u = deleteMinVertex(q);
-        for (int i = 0; i < d; i++) {
-            if (i != u.index) {
-                int neighborPos = getPositionInQueueOf(q, i);
-                if(neighborPos != -1) {
-                    vertex_t neighbor = q->vertexes[neighborPos];
-                    if (u.neighbors[i] != 0) {
-                        unsigned int alt = u.distFromSource + u.neighbors[i];
-                        if (alt < neighbor.distFromSource) {
-                            neighbor.distFromSource = alt;
-                            //neighbor->prev = &u;
-                            decreasePriority(q, neighborPos, alt);
-                        }
-                    }
+        for (int i = 0; i < q->size; i++) {
+            vertex_t neighbor = q->vertexes[i];
+            if(u.neighbors[neighbor.index]) {
+                unsigned int alt = u.distFromSource + u.neighbors[neighbor.index];
+                if (alt < neighbor.distFromSource) {
+                    neighbor.distFromSource = alt;
+                    //neighbor->prev = &u;
+                    decreasePriority(q, i, alt);
                 }
             }
         }
+
         if (u.distFromSource == MAX_DIST) { //u is unreachable
             u.distFromSource = 0;
         }
