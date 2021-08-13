@@ -52,7 +52,7 @@ void minVertexHeapify(vertexHeap_t *heap, int pos);
 
 vertex_t deleteMinVertex(vertexHeap_t *heap);
 
-vertex_t *getVertexByIndex(vertexHeap_t *heap, int index);
+int getPositionInQueueOf(vertexHeap_t *heap, int vertexIndex);
 
 void updateRank(int graphID, int bestDistsSum);
 
@@ -163,15 +163,18 @@ void dijkstra(int graphID) {
         for (int i = 0; i < d; i++) {
             if (i != u.index) {
                 //todo fix
-                vertex_t *neighbor = getVertexByIndex(q, i);
-                if (neighbor != NULL && u.neighbors[i] != 0) {
-                    unsigned int alt = u.distFromSource + u.neighbors[i];
-                    if (alt < neighbor->distFromSource) {
-                        neighbor->distFromSource = alt;
-                        //neighbor->prev = &u;
-                        //review
-                        //minVertexHeapify(q, 0);
-                        decreasePriority(q, neighbor->index, alt); //maybe done with minHeapify
+                int neighborPos = getPositionInQueueOf(q, i);
+                if(neighborPos != -1) {
+                    vertex_t neighbor = q->vertexes[neighborPos];
+                    if (u.neighbors[i] != 0) {
+                        unsigned int alt = u.distFromSource + u.neighbors[i];
+                        if (alt < neighbor.distFromSource) {
+                            neighbor.distFromSource = alt;
+                            //neighbor->prev = &u;
+                            //fixme: i have to to indexInQueueOf(neighbor)
+                            decreasePriority(q, neighborPos,
+                                             alt);
+                        }
                     }
                 }
             }
@@ -283,14 +286,14 @@ int getLastRankedDist() {
     return rankHeap->rank[0].distSum;
 }
 
-vertex_t *getVertexByIndex(vertexHeap_t *heap, int index) {
+int getPositionInQueueOf(vertexHeap_t *heap, int vertexIndex) {
     //todo maybe reduce time complexity for searching
     for (int i = 0; i < heap->size; i++) {
-        if (heap->vertexes[i].index == index) {
-            return &heap->vertexes[i];
+        if (heap->vertexes[i].index == vertexIndex) {
+            return i;
         }
     }
-    return NULL;
+    return -1;
 }
 
 vertex_t deleteMinVertex(vertexHeap_t *heap) {
