@@ -5,7 +5,6 @@
 
 #define MAX_CMD_LENGTH 20
 #define ADD_GRAPH_CMD 'A'
-#define TOPK_CMD 'T'
 #define MAX_DIST_DIGITS 10 //max possible distance is 2^32-1
 #define DIST_SEPARATOR ','
 
@@ -16,7 +15,6 @@ typedef struct vertex {
     int index;
     int *neighbors;
     unsigned int distFromSource;
-    //struct vertex *prev;
 } vertex_t;
 
 typedef struct vertexHeap {
@@ -26,7 +24,7 @@ typedef struct vertexHeap {
 
 typedef struct rankableGraph {
     int id;
-    int distSum;
+    unsigned int distSum;
 } rankableGraph_t;
 
 typedef struct rankHeap {
@@ -38,25 +36,21 @@ void getParameters();
 
 void compute();
 
-void readGraph();
+void readAndComputeGraph(int graphID);
 
-void skipGraph();
+void skipGraph(char *buffer);
 
-void dijkstra(int graphID);
+unsigned int dijkstra();
 
 void printTopKGraphIDs();
-
-//void buildHeap(vertexHeap_t heap);
-
-void printHeap(vertexHeap_t *heap);
 
 void minVertexHeapify(vertexHeap_t *heap, int pos);
 
 vertex_t deleteMinVertex(vertexHeap_t *heap);
 
-void updateRank(int graphID, int bestDistsSum);
+void updateRank(int graphID, unsigned int shortestPathsSum);
 
-int getLastRankedDist();
+unsigned int getLastRankedDist();
 
 void maxGraphHeapify(int pos);
 
@@ -64,7 +58,7 @@ int parent(int i);
 
 void swapGraphs(rankableGraph_t *x, rankableGraph_t *y);
 
-void swapVertex(vertex_t* x, vertex_t* y);
+void swapVertex(vertex_t *x, vertex_t *y);
 
 void decreasePriority(vertexHeap_t *pHeap, int index, unsigned int alt);
 
@@ -99,10 +93,8 @@ int main() {
 
 void getParameters() {
     char firstLine[2 * MAX_DIST_DIGITS + 1 + 2]; //space for d, k, separator, end of string and newline
-    if(fgets(firstLine, 2 * MAX_DIST_DIGITS + 1 + 2, stdin))
-        ;
+    if (fgets(firstLine, 2 * MAX_DIST_DIGITS + 1 + 2, stdin));
 
-    //meglio della scanf: fa passare la lode
     char *remained;
     d = (int) strtol(firstLine, &remained, 10);
     k = (int) strtol(remained, NULL, 10);
@@ -114,20 +106,17 @@ void compute() {
 
     while (fgets(cmd, MAX_CMD_LENGTH, stdin) != NULL) {
         if (cmd[0] == ADD_GRAPH_CMD) {
-            readGraph();
-            graphID = graphID + 1;
-            dijkstra(graphID);
-        } else if (cmd[0] == TOPK_CMD) { //maybe not required. just else branch
-            printTopKGraphIDs(rankHeap);
+            graphID++;
+            readAndComputeGraph(graphID);
         } else {
-            printf("invalid cmd\n");
+            printTopKGraphIDs(rankHeap);
         }
     }
 }
 
 void printTopKGraphIDs() {
     for (int i = 0; i < rankHeap->size; i++) {
-        if(i == rankHeap->size - 1)
+        if (i == rankHeap->size - 1)
             printf("%d", rankHeap->rank[i].id);
         else
             printf("%d ", rankHeap->rank[i].id);
@@ -135,7 +124,47 @@ void printTopKGraphIDs() {
     printf("\n");
 }
 
-void dijkstra(int graphID) {
+void readAndComputeGraph(int graphID) {
+
+    char line[d * (MAX_DIST_DIGITS + 1) + 2]; //d * (dist + separator) + endOfString + newline
+
+    for (int vertexIndex = 0; vertexIndex < d; vertexIndex++) {
+        if (fgets(line, d * (MAX_DIST_DIGITS + 1) + 2, stdin)) //d * (dist + separator) + endOfString + newline
+            ;
+
+        char *input, *remained;
+        input = line;
+        for (int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
+            currGraph[vertexIndex][vertexNeighborIndex] = strtol(input, &remained, 10);
+            if (remained[0] == DIST_SEPARATOR) {
+                input = &remained[1];
+            } else {
+                input = remained;
+            }
+
+            //non necessary check: speeds up the computation on inputs where k is small (more "competitive" TopK)
+            //if one of first vertex's distance is already worst than the last ranked, skip the graph.
+            if (rankHeap->size >= k && vertexIndex == 0 && vertexNeighborIndex != 0 &&
+                currGraph[vertexIndex][vertexNeighborIndex] >= getLastRankedDist()) {
+                skipGraph(line);
+                return;
+            }
+        }
+    }
+
+    updateRank(graphID, dijkstra());
+}
+
+void skipGraph(char *buffer) {
+    for (int i = 1; i < d; i++) {
+        if (fgets(buffer, d * (MAX_DIST_DIGITS + 1) + 2, stdin)) //d * (dist + separator) + endOfString + newline
+            ;
+    }
+}
+
+unsigned int dijkstra() {
+
+    //create the min priority queue
     vertexHeap_t q;
     q.vertices = currVertexes;
     for (int i = 0; i < d; i++) {
@@ -145,35 +174,22 @@ void dijkstra(int graphID) {
         } else {
             q.vertices[i].distFromSource = MAX_DIST;
         }
-
         q.vertices[i].neighbors = currGraph[i];
-
-        //q->vertices[i].prev = NULL;
-
         q.size = d;
     }
-    for (int i = floor(d/2); i > 0; i--) {
+    for (int i = floor(d / 2); i > 0; i--) {
         minVertexHeapify(&q, i);
     }
 
-    unsigned int bestDistsSum = 0;
-
-    /*
-    for(int i = 0; i < d; i++) {
-        printf("vertexID: %d, dist: %d\n", q.vertices[i].index, q.vertices[i].distFromSource);
-    }
-    */
-
+    //sum of the shortest paths from the source to each node of the graph
+    unsigned int shortestPathsSum = 0;
     while (q.size > 0) {
         vertex_t u = deleteMinVertex(&q);
-        //printf("min: vertex %d with dist of %d\n", u.index, u.distFromSource);
         for (int i = 0; i < q.size; i++) {
             vertex_t neighbor = q.vertices[i];
-            if(u.neighbors[neighbor.index] != 0) {
+            if (u.neighbors[neighbor.index] != 0) {
                 unsigned int alt = u.distFromSource + u.neighbors[neighbor.index];
                 if (alt < neighbor.distFromSource) {
-                    neighbor.distFromSource = alt; //inutile?
-                    //neighbor->prev = &u;
                     decreasePriority(&q, i, alt);
                 }
             }
@@ -182,50 +198,23 @@ void dijkstra(int graphID) {
         if (u.distFromSource == MAX_DIST) { //u is unreachable
             u.distFromSource = 0;
         }
-        //printf("vertexID: %d has distance from source of: %d\n", u.index, u.distFromSource);
-        bestDistsSum = bestDistsSum + u.distFromSource;
+
+        shortestPathsSum = shortestPathsSum + u.distFromSource;
     }
 
-    //printf("graphId %d has sum of %d\n",graphID, bestDistsSum);
-    //printf("%d\n", bestDistsSum);
-    updateRank(graphID, bestDistsSum);
-
-    //test
-    /*
-    for (int i = 0; i < d; i++) {
-        for (int j = 0; j < d; j++)
-            printf("%d ", currGraph[i][j]);
-        printf("\n");
-    }
-     */
+    return shortestPathsSum;
 }
 
-void decreasePriority(vertexHeap_t *pHeap, int index, unsigned int alt) {
-    /*
-    if(alt < pHeap->vertices[index].distFromSource)
-        return;
-    */
-    pHeap->vertices[index].distFromSource = alt;
-
-    //int parent = floor((index-1)/2);
-    while (index > 0 && pHeap->vertices[parent(index)].distFromSource > pHeap->vertices[index].distFromSource) {
-        swapVertex(&pHeap->vertices[parent(index)], &pHeap->vertices[index]);
-        index = parent(index);
-    }
-}
-
-void updateRank(int graphID, int bestDistsSum) {
-    //printf("PESO GRAFO[%d]: %d\n", graphID, bestDistsSum);
+void updateRank(int graphID, unsigned int shortestPathsSum) {
 
     rankableGraph_t toAdd;
     toAdd.id = graphID;
-    toAdd.distSum = bestDistsSum;
+    toAdd.distSum = shortestPathsSum;
 
     if (rankHeap->size >= k) {
-        if(bestDistsSum >= getLastRankedDist()) {
+        if (shortestPathsSum >= getLastRankedDist()) {
             return;
         }
-        //free(rankHeap->rank);
         rankHeap->rank[0] = toAdd;
         maxGraphHeapify(0);
     } else {
@@ -237,8 +226,13 @@ void updateRank(int graphID, int bestDistsSum) {
             i = parent(i);
         }
     }
+}
 
-    //printTopKGraphs(rank);
+unsigned int getLastRankedDist() {
+    if (rankHeap->size == 0) {
+        return MAX_DIST;
+    }
+    return rankHeap->rank[0].distSum;
 }
 
 void swapGraphs(rankableGraph_t *x, rankableGraph_t *y) {
@@ -254,9 +248,9 @@ void swapVertex(vertex_t *x, vertex_t *y) {
 }
 
 int parent(int i) {
-    if(i%2 == 0)
-        return i/2-1;
-    return i/2;
+    if (i % 2 == 0)
+        return i / 2 - 1;
+    return i / 2;
 }
 
 void maxGraphHeapify(int pos) {
@@ -269,22 +263,14 @@ void maxGraphHeapify(int pos) {
         maxPos = left;
     }
 
-    if(right < rankHeap->size && rankHeap->rank[right].distSum > rankHeap->rank[maxPos].distSum) {
+    if (right < rankHeap->size && rankHeap->rank[right].distSum > rankHeap->rank[maxPos].distSum) {
         maxPos = right;
     }
 
-    if(maxPos != pos) {
+    if (maxPos != pos) {
         swapGraphs(&rankHeap->rank[pos], &rankHeap->rank[maxPos]);
         maxGraphHeapify(maxPos);
     }
-
-}
-
-int getLastRankedDist() {
-    if (rankHeap->size == 0) {
-        return MAX_DIST;
-    }
-    return rankHeap->rank[0].distSum;
 }
 
 vertex_t deleteMinVertex(vertexHeap_t *heap) {
@@ -313,56 +299,12 @@ void minVertexHeapify(vertexHeap_t *heap, int pos) {
     }
 }
 
-void readGraph() {
+void decreasePriority(vertexHeap_t *pHeap, int index, unsigned int alt) {
+    pHeap->vertices[index].distFromSource = alt;
 
-    char line[d * (MAX_DIST_DIGITS + 1) + 2]; //d * (dist + separator) + endOfString + newline
-
-    for (int vertexIndex = 0; vertexIndex < d; vertexIndex++) {
-        if(fgets(line, d * (MAX_DIST_DIGITS + 1) + 2, stdin)) //d * (dist + separator) + endOfString + newline
-            ;
-
-        char *input, *remained;
-        input = line;
-        for(int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
-            currGraph[vertexIndex][vertexNeighborIndex] = strtol(input, &remained, 10);
-            if(remained[0] == DIST_SEPARATOR) {
-                input = &remained[1];
-            } else {
-                input = remained;
-            }
-
-            //todo this is not necessary. no timing problems
-            /*
-            //if one of first vertex's distance is already worst than the last ranked, skip the graph.
-            if(rankHeap->size >= k && vertexIndex == 0 && currGraph[vertexIndex][vertexNeighborIndex] >= getLastRankedDist()) {
-                skipGraph();
-                return;
-            }
-             */
-        }
+    while (index > 0 && pHeap->vertices[parent(index)].distFromSource > pHeap->vertices[index].distFromSource) {
+        swapVertex(&pHeap->vertices[parent(index)], &pHeap->vertices[index]);
+        index = parent(index);
     }
-}
-
-void skipGraph() {
-    //fixme
-    for (int i = 1; i < d; i++)
-        if(fscanf(stdin, "%*[^\n]"))
-            ;
-}
-
-
-void printHeap(vertexHeap_t *heap) {
-    /*
-    for (int i = 0; i < heap->size; i++) {
-        printf("v. index: %d has dist: %d\n", heap->vertices[i].index, heap->vertices[i].distFromSource);
-    }
-    printf("------\n\n");
-     */
-
-    for (int i = 0; i < heap->size; i++) {
-        printf("%d ", heap->vertices[i].distFromSource);
-    }
-
-    printf("\n");
 }
 
