@@ -313,7 +313,7 @@ void readGraph() {
         if(fgets(line, d * (MAX_DIST_DIGITS + 1) + 2, stdin)) //d * (dist + separator) + endOfString + newline
             ;
         int i = 0;
-        char digits[MAX_DIST_DIGITS];
+        char digits[MAX_DIST_DIGITS + 1];
         for(int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
             int j = 0;
             while(line[i] != DIST_SEPARATOR && line[i] != '\n') {
