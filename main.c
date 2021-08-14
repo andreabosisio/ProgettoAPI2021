@@ -130,25 +130,24 @@ void printTopKGraphIDs() {
 }
 
 void dijkstra(int graphID) {
-    vertexHeap_t *q = (vertexHeap_t *) malloc(sizeof(vertexHeap_t));
-    q->vertexes = currVertexes;
+    vertexHeap_t q;
+    q.vertexes = currVertexes;
     for (int i = 0; i < d; i++) {
-        q->vertexes[i].index = i;
-
+        q.vertexes[i].index = i;
         if (i == 0) {
-            q->vertexes[i].distFromSource = MIN_DIST;
+            q.vertexes[i].distFromSource = MIN_DIST;
         } else {
-            q->vertexes[i].distFromSource = MAX_DIST;
+            q.vertexes[i].distFromSource = MAX_DIST;
         }
 
-        q->vertexes[i].neighbors = currGraph[i];
+        q.vertexes[i].neighbors = currGraph[i];
 
         //q->vertexes[i].prev = NULL;
 
-        q->size = d;
+        q.size = d;
     }
     for (int i = floor(d/2); i > 0; i--) {
-        minVertexHeapify(q, i);
+        minVertexHeapify(&q, i);
     }
 
     unsigned int bestDistsSum = 0;
@@ -159,16 +158,16 @@ void dijkstra(int graphID) {
     }
     */
 
-    while (q->size > 0) {
-        vertex_t u = deleteMinVertex(q);
-        for (int i = 0; i < q->size; i++) {
-            vertex_t neighbor = q->vertexes[i];
+    while (q.size > 0) {
+        vertex_t u = deleteMinVertex(&q);
+        for (int i = 0; i < q.size; i++) {
+            vertex_t neighbor = q.vertexes[i];
             if(u.neighbors[neighbor.index] != 0) {
                 unsigned int alt = u.distFromSource + u.neighbors[neighbor.index];
                 if (alt < neighbor.distFromSource) {
                     neighbor.distFromSource = alt;
                     //neighbor->prev = &u;
-                    decreasePriority(q, i, alt);
+                    decreasePriority(&q, i, alt);
                 }
             }
         }
@@ -182,8 +181,6 @@ void dijkstra(int graphID) {
 
     //printf("graphId %d has sum of %d\n",graphID, bestDistsSum);
     updateRank(graphID, bestDistsSum);
-    
-    free(q);
 
     //test
     /*
@@ -214,17 +211,17 @@ void updateRank(int graphID, int bestDistsSum) {
         return;
     }
 
-    rankableGraph_t* toAdd = (rankableGraph_t *) malloc(sizeof(rankableGraph_t));
-    toAdd->id = graphID;
-    toAdd->distSum = bestDistsSum;
+    rankableGraph_t toAdd;
+    toAdd.id = graphID;
+    toAdd.distSum = bestDistsSum;
 
     if (rankHeap->size >= k) {
         //free(rankHeap->rank);
-        rankHeap->rank[0] = *toAdd;
+        rankHeap->rank[0] = toAdd;
         maxGraphHeapify(0);
     } else {
         rankHeap->size++;
-        rankHeap->rank[rankHeap->size - 1] = *toAdd;
+        rankHeap->rank[rankHeap->size - 1] = toAdd;
         int i = rankHeap->size - 1;
         while (i > 0 && rankHeap->rank[parent(i)].distSum <= rankHeap->rank[i].distSum) {
             swapGraphs(&rankHeap->rank[parent(i)], &rankHeap->rank[i]);
@@ -232,7 +229,6 @@ void updateRank(int graphID, int bestDistsSum) {
         }
     }
 
-    free(toAdd);
     //printTopKGraphs(rank);
 }
 
