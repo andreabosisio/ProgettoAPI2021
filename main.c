@@ -182,6 +182,8 @@ void dijkstra(int graphID) {
 
     //printf("graphId %d has sum of %d\n",graphID, bestDistsSum);
     updateRank(graphID, bestDistsSum);
+    
+    free(q);
 
     //test
     /*
@@ -217,7 +219,7 @@ void updateRank(int graphID, int bestDistsSum) {
     toAdd->distSum = bestDistsSum;
 
     if (rankHeap->size >= k) {
-        //free(&rankHeap->rank[0]);
+        //free(rankHeap->rank);
         rankHeap->rank[0] = *toAdd;
         maxGraphHeapify(0);
     } else {
@@ -230,6 +232,7 @@ void updateRank(int graphID, int bestDistsSum) {
         }
     }
 
+    free(toAdd);
     //printTopKGraphs(rank);
 }
 
