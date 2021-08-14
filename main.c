@@ -98,8 +98,14 @@ int main() {
 }
 
 void getParameters() {
-    if(scanf("%d %d\n", &d, &k))
+    char firstLine[2 * MAX_DIST_DIGITS + 1 + 2]; //space for d, k, separator, end of string and newline
+    if(fgets(firstLine, 2 * MAX_DIST_DIGITS + 1 + 2, stdin))
         ;
+
+    //meglio della scanf: fa passare la lode
+    char *remained;
+    d = (int) strtol(firstLine, &remained, 10);
+    k = (int) strtol(remained, NULL, 10);
 }
 
 void compute() {
@@ -207,15 +213,14 @@ void decreasePriority(vertexHeap_t *pHeap, int index, unsigned int alt) {
 void updateRank(int graphID, int bestDistsSum) {
     //printf("PESO GRAFO[%d]: %d\n", graphID, bestDistsSum);
 
-    if(bestDistsSum >= getLastRankedDist()) {
-        return;
-    }
-
     rankableGraph_t toAdd;
     toAdd.id = graphID;
     toAdd.distSum = bestDistsSum;
 
     if (rankHeap->size >= k) {
+        if(bestDistsSum >= getLastRankedDist()) {
+            return;
+        }
         //free(rankHeap->rank);
         rankHeap->rank[0] = toAdd;
         maxGraphHeapify(0);
@@ -311,21 +316,20 @@ void readGraph() {
     for (int vertexIndex = 0; vertexIndex < d; vertexIndex++) {
         if(fgets(line, d * (MAX_DIST_DIGITS + 1) + 2, stdin)) //d * (dist + separator) + endOfString + newline
             ;
-        int i = 0;
-        char digits[MAX_DIST_DIGITS + 1];
-        for(int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
-            int j = 0;
-            while(line[i] != DIST_SEPARATOR && line[i] != '\n') {
-                digits[j] = line[i];
-                i++;
-                j++;
-            }
-            digits[j] = '\0';
-            currGraph[vertexIndex][vertexNeighborIndex] = atoi(digits);
-            i++;
 
-            //if one of first vertex's distance is already worst than the last ranked, skip the graph.
+        char *input, *remained;
+        input = line;
+        for(int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
+            currGraph[vertexIndex][vertexNeighborIndex] = strtol(input, &remained, 10);
+            if(remained[0] == DIST_SEPARATOR) {
+                input = &remained[1];
+            } else {
+                input = remained;
+            }
+
+            //todo this is not necessary. no timing problems
             /*
+            //if one of first vertex's distance is already worst than the last ranked, skip the graph.
             if(rankHeap->size >= k && vertexIndex == 0 && currGraph[vertexIndex][vertexNeighborIndex] >= getLastRankedDist()) {
                 skipGraph();
                 return;
@@ -336,6 +340,7 @@ void readGraph() {
 }
 
 void skipGraph() {
+    //fixme
     for (int i = 1; i < d; i++)
         if(fscanf(stdin, "%*[^\n]"))
             ;
