@@ -62,8 +62,7 @@ void swapVertex(vertex_t *x, vertex_t *y);
 
 void decreasePriority(vertexHeap_t *pHeap, int index, unsigned int alt);
 
-// d := number of nodes, k := rank length
-static int d, k;
+static int d, k; // d := number of nodes, k := rank length
 
 static rankHeap_t *rankHeap;
 
@@ -71,9 +70,13 @@ static int **currGraph;
 
 static vertex_t *currVertexes;
 
+static int MAX_FIRST_LINE_CHARS, MAX_GRAPH_LINE_CHARS;
+
 int main() {
 
     getParameters();
+
+    MAX_GRAPH_LINE_CHARS = d * (MAX_DIST_DIGITS + 1) + 2; //d * (dist + separator) + endOfString + newline
 
     rankHeap = (rankHeap_t *) malloc(sizeof(rankHeap_t));
     rankHeap->rank = (rankableGraph_t *) malloc((k) * sizeof(rankableGraph_t));
@@ -92,8 +95,12 @@ int main() {
 }
 
 void getParameters() {
-    char firstLine[2 * MAX_DIST_DIGITS + 1 + 2]; //space for d, k, separator, end of string and newline
-    if (fgets(firstLine, 2 * MAX_DIST_DIGITS + 1 + 2, stdin));
+
+    MAX_FIRST_LINE_CHARS = MAX_DIST_DIGITS + 1 + MAX_DIST_DIGITS + 2; //d + k + separator + end of string and newline
+
+    char firstLine[MAX_FIRST_LINE_CHARS];
+    if (fgets(firstLine, MAX_FIRST_LINE_CHARS, stdin))
+        ;
 
     char *remained;
     d = (int) strtol(firstLine, &remained, 10);
@@ -126,10 +133,10 @@ void printTopKGraphIDs() {
 
 void readAndComputeGraph(int graphID) {
 
-    char line[d * (MAX_DIST_DIGITS + 1) + 2]; //d * (dist + separator) + endOfString + newline
+    char line[MAX_GRAPH_LINE_CHARS];
 
     for (int vertexIndex = 0; vertexIndex < d; vertexIndex++) {
-        if (fgets(line, d * (MAX_DIST_DIGITS + 1) + 2, stdin)) //d * (dist + separator) + endOfString + newline
+        if (fgets(line, MAX_GRAPH_LINE_CHARS, stdin))
             ;
 
         char *input, *remained;
@@ -157,7 +164,7 @@ void readAndComputeGraph(int graphID) {
 
 void skipGraph(char *buffer) {
     for (int i = 1; i < d; i++) {
-        if (fgets(buffer, d * (MAX_DIST_DIGITS + 1) + 2, stdin)) //d * (dist + separator) + endOfString + newline
+        if (fgets(buffer, MAX_GRAPH_LINE_CHARS, stdin))
             ;
     }
 }
@@ -176,9 +183,6 @@ unsigned int dijkstra() {
         }
         q.vertices[i].neighbors = currGraph[i];
         q.size = d;
-    }
-    for (int i = floor(d / 2); i > 0; i--) {
-        minVertexHeapify(&q, i);
     }
 
     //sum of the shortest paths from the source to each node of the graph
@@ -229,9 +233,8 @@ void updateRank(int graphID, unsigned int shortestPathsSum) {
 }
 
 unsigned int getLastRankedDist() {
-    if (rankHeap->size == 0) {
+    if (rankHeap->size == 0)
         return MAX_DIST;
-    }
     return rankHeap->rank[0].distSum;
 }
 
