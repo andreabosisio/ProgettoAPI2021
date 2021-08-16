@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <limits.h>
 
 #define MAX_CMD_LENGTH 20
@@ -34,13 +33,13 @@ typedef struct rankHeap {
 
 void getParameters();
 
-void compute();
+void compute(int **currGraph, vertex_t *currVertices);
 
-void readAndComputeGraph(int graphID);
+void readAndComputeGraph(int **currGraph, int graphID, vertex_t *currVertices);
 
 void skipGraph(char *buffer);
 
-unsigned int dijkstra();
+unsigned int dijkstra(int **currGraph, vertex_t *currVertices);
 
 void printTopKGraphIDs();
 
@@ -64,11 +63,7 @@ void decreasePriority(vertexHeap_t *pHeap, int index, unsigned int alt);
 
 static int d, k; // d := number of nodes, k := rank length
 
-static rankHeap_t *rankHeap;
-
-static int **currGraph;
-
-static vertex_t *currVertexes;
+static rankHeap_t rankHeap;
 
 static int MAX_FIRST_LINE_CHARS, MAX_GRAPH_LINE_CHARS;
 
@@ -78,18 +73,15 @@ int main() {
 
     MAX_GRAPH_LINE_CHARS = d * (MAX_DIST_DIGITS + 1) + 2; //d * (dist + separator) + endOfString + newline
 
-    rankHeap = (rankHeap_t *) malloc(sizeof(rankHeap_t));
-    rankHeap->rank = (rankableGraph_t *) malloc((k) * sizeof(rankableGraph_t));
-    rankHeap->size = 0;
+    int currGraph[d][d];
+    vertex_t currVertices[d];
 
-    currGraph = (int **) malloc(d * sizeof(int *));
-    for (int i = 0; i < d; i++) {
-        currGraph[i] = (int *) malloc(d * sizeof(int));
-    }
+    rankableGraph_t rank[k];
 
-    currVertexes = (vertex_t *) malloc(d * sizeof(vertex_t));
+    rankHeap.rank = rank;
+    rankHeap.size = 0;
 
-    compute();
+    compute((int **) currGraph, currVertices);
 
     return 0;
 }
@@ -107,14 +99,14 @@ void getParameters() {
     k = (int) strtol(remained, NULL, 10);
 }
 
-void compute() {
+void compute(int **currGraph, vertex_t* currVertices) {
     char cmd[MAX_CMD_LENGTH];
     int graphID = -1;
 
     while (fgets(cmd, MAX_CMD_LENGTH, stdin) != NULL) {
         if (cmd[0] == ADD_GRAPH_CMD) {
             graphID++;
-            readAndComputeGraph(graphID);
+            readAndComputeGraph(currGraph, graphID, currVertices);
         } else {
             printTopKGraphIDs(rankHeap);
         }
@@ -122,27 +114,29 @@ void compute() {
 }
 
 void printTopKGraphIDs() {
-    for (int i = 0; i < rankHeap->size; i++) {
-        if (i == rankHeap->size - 1)
-            printf("%d", rankHeap->rank[i].id);
+    for (int i = 0; i < rankHeap.size; i++) {
+        if (i == rankHeap.size - 1)
+            printf("%d", rankHeap.rank[i].id);
         else
-            printf("%d ", rankHeap->rank[i].id);
+            printf("%d ", rankHeap.rank[i].id);
     }
     printf("\n");
 }
 
-void readAndComputeGraph(int graphID) {
+void readAndComputeGraph(int **currGraph, int graphID, vertex_t *currVertices) {
 
     char line[MAX_GRAPH_LINE_CHARS];
 
-    for (int vertexIndex = 0; vertexIndex < d; vertexIndex++) {
+    int *pGraph = (int *) currGraph;
+
+    for (int vertexIndex = 0, t = 0; vertexIndex < d; vertexIndex++) {
         if (fgets(line, MAX_GRAPH_LINE_CHARS, stdin))
             ;
 
         char *input, *remained;
         input = line;
-        for (int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
-            currGraph[vertexIndex][vertexNeighborIndex] = strtol(input, &remained, 10);
+        for (int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++, t++) {
+            *(pGraph + t) = strtol(input, &remained, 10);
             if (remained[0] == DIST_SEPARATOR) {
                 input = &remained[1];
             } else {
@@ -151,15 +145,16 @@ void readAndComputeGraph(int graphID) {
 
             //non necessary check: speeds up the computation on inputs where k is small (more "competitive" TopK)
             //if one of first vertex's distance is already worst than the last ranked, skip the graph.
-            if (rankHeap->size >= k && vertexIndex == 0 && vertexNeighborIndex != 0 &&
-                currGraph[vertexIndex][vertexNeighborIndex] >= getLastRankedDist()) {
+            if (rankHeap.size >= k && vertexIndex == 0 && vertexNeighborIndex != 0 &&
+                    *(pGraph + t) >= getLastRankedDist()) {
                 skipGraph(line);
                 return;
             }
         }
     }
 
-    updateRank(graphID, dijkstra());
+    //printf("PESO GRAFO[%d]: ", graphID);
+    updateRank(graphID, dijkstra(currGraph, currVertices));
 }
 
 void skipGraph(char *buffer) {
@@ -169,11 +164,14 @@ void skipGraph(char *buffer) {
     }
 }
 
-unsigned int dijkstra() {
+unsigned int dijkstra(int **currGraph, vertex_t *currVertices) {
+
+    int *pGraph = (int*)currGraph;
+    vertex_t *pVert = currVertices;
 
     //create the min priority queue
     vertexHeap_t q;
-    q.vertices = currVertexes;
+    q.vertices = pVert;
     for (int i = 0; i < d; i++) {
         q.vertices[i].index = i;
         if (i == 0) {
@@ -181,8 +179,10 @@ unsigned int dijkstra() {
         } else {
             q.vertices[i].distFromSource = MAX_DIST;
         }
-        q.vertices[i].neighbors = currGraph[i];
+        q.vertices[i].neighbors = pGraph;
         q.size = d;
+
+        pGraph = pGraph + d;
     }
 
     //sum of the shortest paths from the source to each node of the graph
@@ -215,27 +215,27 @@ void updateRank(int graphID, unsigned int shortestPathsSum) {
     toAdd.id = graphID;
     toAdd.distSum = shortestPathsSum;
 
-    if (rankHeap->size >= k) {
+    if (rankHeap.size >= k) {
         if (shortestPathsSum >= getLastRankedDist()) {
             return;
         }
-        rankHeap->rank[0] = toAdd;
+        rankHeap.rank[0] = toAdd;
         maxGraphHeapify(0);
     } else {
-        rankHeap->size++;
-        rankHeap->rank[rankHeap->size - 1] = toAdd;
-        int i = rankHeap->size - 1;
-        while (i > 0 && rankHeap->rank[parent(i)].distSum <= rankHeap->rank[i].distSum) {
-            swapGraphs(&rankHeap->rank[parent(i)], &rankHeap->rank[i]);
+        rankHeap.size++;
+        rankHeap.rank[rankHeap.size - 1] = toAdd;
+        int i = rankHeap.size - 1;
+        while (i > 0 && rankHeap.rank[parent(i)].distSum <= rankHeap.rank[i].distSum) {
+            swapGraphs(&rankHeap.rank[parent(i)], &rankHeap.rank[i]);
             i = parent(i);
         }
     }
 }
 
 unsigned int getLastRankedDist() {
-    if (rankHeap->size == 0)
+    if (rankHeap.size == 0)
         return MAX_DIST;
-    return rankHeap->rank[0].distSum;
+    return rankHeap.rank[0].distSum;
 }
 
 void swapGraphs(rankableGraph_t *x, rankableGraph_t *y) {
@@ -262,16 +262,16 @@ void maxGraphHeapify(int pos) {
     int right = 2 * pos + 2;
     int maxPos = pos;
 
-    if (left < rankHeap->size && rankHeap->rank[left].distSum > rankHeap->rank[pos].distSum) {
+    if (left < rankHeap.size && rankHeap.rank[left].distSum > rankHeap.rank[pos].distSum) {
         maxPos = left;
     }
 
-    if (right < rankHeap->size && rankHeap->rank[right].distSum > rankHeap->rank[maxPos].distSum) {
+    if (right < rankHeap.size && rankHeap.rank[right].distSum > rankHeap.rank[maxPos].distSum) {
         maxPos = right;
     }
 
     if (maxPos != pos) {
-        swapGraphs(&rankHeap->rank[pos], &rankHeap->rank[maxPos]);
+        swapGraphs(&rankHeap.rank[pos], &rankHeap.rank[maxPos]);
         maxGraphHeapify(maxPos);
     }
 }
