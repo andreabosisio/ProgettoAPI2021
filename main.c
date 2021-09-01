@@ -122,11 +122,12 @@ void compute() {
 }
 
 void printTopKGraphIDs() {
-    for (int i = 0; i < rankHeap->size; i++) {
-        if (i == rankHeap->size - 1)
-            printf("%d", rankHeap->rank[i].id);
-        else
-            printf("%d ", rankHeap->rank[i].id);
+    int i = 0;
+    for (; i < rankHeap->size - 1; i++) {
+        printf("%d ", rankHeap->rank[i].id);
+    }
+    if(i > 0) { //i == rankHeap->size - 1
+        printf("%d", rankHeap->rank[i].id);
     }
     printf("\n");
 }
@@ -204,6 +205,9 @@ unsigned int dijkstra() {
         }
 
         shortestPathsSum = shortestPathsSum + u.distFromSource;
+
+        if(rankHeap->size >= k && shortestPathsSum >= getLastRankedDist())
+            break;
     }
 
     return shortestPathsSum;
