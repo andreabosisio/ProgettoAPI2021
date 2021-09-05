@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <limits.h>
 
 #define MAX_CMD_LENGTH 20
@@ -13,7 +12,7 @@
 
 typedef struct vertex {
     int index;
-    int *neighbors;
+    unsigned int *neighbors;
     unsigned int distFromSource;
 } vertex_t;
 
@@ -23,7 +22,7 @@ typedef struct vertexHeap {
 } vertexHeap_t;
 
 typedef struct rankableGraph {
-    int id;
+    unsigned int id;
     unsigned int distSum;
 } rankableGraph_t;
 
@@ -43,6 +42,8 @@ void skipGraph(char *buffer);
 unsigned int dijkstra();
 
 void printTopKGraphIDs();
+
+void printUnsignedInt(unsigned int n);
 
 void minVertexHeapify(vertexHeap_t *heap, int pos);
 
@@ -66,7 +67,7 @@ static int d, k; // d := number of nodes, k := rank length
 
 static rankHeap_t *rankHeap;
 
-static int **currGraph;
+static unsigned int **currGraph;
 
 static vertex_t *currVertexes;
 
@@ -82,9 +83,9 @@ int main() {
     rankHeap->rank = (rankableGraph_t *) malloc((k) * sizeof(rankableGraph_t));
     rankHeap->size = 0;
 
-    currGraph = (int **) malloc(d * sizeof(int *));
+    currGraph = (unsigned int **) malloc(d * sizeof(unsigned int *));
     for (int i = 0; i < d; i++) {
-        currGraph[i] = (int *) malloc(d * sizeof(int));
+        currGraph[i] = (unsigned int *) malloc(d * sizeof(unsigned int));
     }
 
     currVertexes = (vertex_t *) malloc(d * sizeof(vertex_t));
@@ -99,8 +100,7 @@ void getParameters() {
     MAX_FIRST_LINE_CHARS = MAX_DIST_DIGITS + 1 + MAX_DIST_DIGITS + 2; //d + k + separator + end of string and newline
 
     char firstLine[MAX_FIRST_LINE_CHARS];
-    if (fgets(firstLine, MAX_FIRST_LINE_CHARS, stdin))
-        ;
+    if (fgets(firstLine, MAX_FIRST_LINE_CHARS, stdin));
 
     char *remained;
     d = (int) strtol(firstLine, &remained, 10);
@@ -124,12 +124,19 @@ void compute() {
 void printTopKGraphIDs() {
     int i = 0;
     for (; i < rankHeap->size - 1; i++) {
-        printf("%d ", rankHeap->rank[i].id);
+        printUnsignedInt(rankHeap->rank[i].id);
+        putchar_unlocked(' ');
     }
-    if(i > 0) { //i == rankHeap->size - 1
-        printf("%d", rankHeap->rank[i].id);
+    if (i > 0) { //i == rankHeap->size - 1
+        printUnsignedInt(rankHeap->rank[i].id);
     }
-    printf("\n");
+    putchar_unlocked('\n');
+}
+
+void printUnsignedInt(unsigned int n) {
+    if (n / 10 != 0)
+        printUnsignedInt(n / 10);
+    putchar_unlocked((n % 10) + '0');
 }
 
 void readAndComputeGraph(int graphID) {
@@ -137,8 +144,7 @@ void readAndComputeGraph(int graphID) {
     char line[MAX_GRAPH_LINE_CHARS];
 
     for (int vertexIndex = 0; vertexIndex < d; vertexIndex++) {
-        if (fgets(line, MAX_GRAPH_LINE_CHARS, stdin))
-            ;
+        if (fgets(line, MAX_GRAPH_LINE_CHARS, stdin));
 
         char *input, *remained;
         input = line;
@@ -165,8 +171,7 @@ void readAndComputeGraph(int graphID) {
 
 void skipGraph(char *buffer) {
     for (int i = 1; i < d; i++) {
-        if (fgets(buffer, MAX_GRAPH_LINE_CHARS, stdin))
-            ;
+        if (fgets(buffer, MAX_GRAPH_LINE_CHARS, stdin));
     }
 }
 
@@ -200,13 +205,13 @@ unsigned int dijkstra() {
             }
         }
 
-        if (u.distFromSource == MAX_DIST) { //u is unreachable
+        if (u.distFromSource >= MAX_DIST) { //u is unreachable
             u.distFromSource = 0;
         }
 
         shortestPathsSum = shortestPathsSum + u.distFromSource;
 
-        if(rankHeap->size >= k && shortestPathsSum >= getLastRankedDist())
+        if (rankHeap->size >= k && shortestPathsSum >= getLastRankedDist())
             break;
     }
 
