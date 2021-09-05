@@ -4,8 +4,8 @@
 
 #define MAX_CMD_LENGTH 20
 #define ADD_GRAPH_CMD 'A'
-#define MAX_DIST_DIGITS 10 //max possible distance is 2^32-1
 #define DIST_SEPARATOR ','
+#define PARAMETERS_SEPARATOR ' '
 
 #define MIN_DIST 0
 #define MAX_DIST INT_MAX
@@ -37,13 +37,15 @@ void compute();
 
 void readAndComputeGraph(int graphID);
 
-void skipGraph(char *buffer);
+void skipGraph(int lineToSkip);
 
 unsigned int dijkstra();
 
 void printTopKGraphIDs();
 
 void printUnsignedInt(unsigned int n);
+
+unsigned int readIntegerUntil(char separator);
 
 void minVertexHeapify(vertexHeap_t *heap, int pos);
 
@@ -71,13 +73,9 @@ static unsigned int **currGraph;
 
 static vertex_t *currVertexes;
 
-static int MAX_FIRST_LINE_CHARS, MAX_GRAPH_LINE_CHARS;
-
 int main() {
 
     getParameters();
-
-    MAX_GRAPH_LINE_CHARS = d * (MAX_DIST_DIGITS + 1) + 2; //d * (dist + separator) + endOfString + newline
 
     rankHeap = (rankHeap_t *) malloc(sizeof(rankHeap_t));
     rankHeap->rank = (rankableGraph_t *) malloc((k) * sizeof(rankableGraph_t));
@@ -96,15 +94,8 @@ int main() {
 }
 
 void getParameters() {
-
-    MAX_FIRST_LINE_CHARS = MAX_DIST_DIGITS + 1 + MAX_DIST_DIGITS + 2; //d + k + separator + end of string and newline
-
-    char firstLine[MAX_FIRST_LINE_CHARS];
-    if (fgets(firstLine, MAX_FIRST_LINE_CHARS, stdin));
-
-    char *remained;
-    d = (int) strtol(firstLine, &remained, 10);
-    k = (int) strtol(remained, NULL, 10);
+    d = (int) readIntegerUntil(PARAMETERS_SEPARATOR);
+    k = (int) readIntegerUntil('\n');
 }
 
 void compute() {
@@ -139,39 +130,49 @@ void printUnsignedInt(unsigned int n) {
     putchar_unlocked((n % 10) + '0');
 }
 
+unsigned int readIntegerUntil(char separator) {
+    int c, convertedInt = 0;
+    while ((c = getchar_unlocked()) != separator) {
+        convertedInt = convertedInt * 10 + c - '0';
+    }
+    return convertedInt;
+}
+
 void readAndComputeGraph(int graphID) {
+    int rankHeapSize = rankHeap->size;
+    unsigned int lastRankedDist = getLastRankedDist();
 
-    char line[MAX_GRAPH_LINE_CHARS];
+    for (int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
+        if (vertexNeighborIndex < d - 1)
+            currGraph[0][vertexNeighborIndex] = readIntegerUntil(DIST_SEPARATOR);
+        else
+            currGraph[0][vertexNeighborIndex] = readIntegerUntil('\n');
 
-    for (int vertexIndex = 0; vertexIndex < d; vertexIndex++) {
-        if (fgets(line, MAX_GRAPH_LINE_CHARS, stdin));
-
-        char *input, *remained;
-        input = line;
+        //non necessary check: speeds up the computation on inputs where k is small (more "competitive" TopK)
+        //if one of first vertex's distance is already worst than the last ranked, skip the graph.
+        if (rankHeapSize >= k && vertexNeighborIndex != 0 && currGraph[0][vertexNeighborIndex] >= lastRankedDist) {
+            if (vertexNeighborIndex < d - 1)
+                skipGraph(d);
+            else
+                skipGraph(d - 1);
+            return;
+        }
+    }
+    for (int vertexIndex = 1; vertexIndex < d; vertexIndex++) {
         for (int vertexNeighborIndex = 0; vertexNeighborIndex < d; vertexNeighborIndex++) {
-            currGraph[vertexIndex][vertexNeighborIndex] = strtol(input, &remained, 10);
-            if (remained[0] == DIST_SEPARATOR) {
-                input = &remained[1];
-            } else {
-                input = remained;
-            }
-
-            //non necessary check: speeds up the computation on inputs where k is small (more "competitive" TopK)
-            //if one of first vertex's distance is already worst than the last ranked, skip the graph.
-            if (rankHeap->size >= k && vertexIndex == 0 && vertexNeighborIndex != 0 &&
-                currGraph[vertexIndex][vertexNeighborIndex] >= getLastRankedDist()) {
-                skipGraph(line);
-                return;
-            }
+            if (vertexNeighborIndex < d - 1)
+                currGraph[vertexIndex][vertexNeighborIndex] = readIntegerUntil(DIST_SEPARATOR);
+            else
+                currGraph[vertexIndex][vertexNeighborIndex] = readIntegerUntil('\n');
         }
     }
 
     updateRank(graphID, dijkstra());
 }
 
-void skipGraph(char *buffer) {
-    for (int i = 1; i < d; i++) {
-        if (fgets(buffer, MAX_GRAPH_LINE_CHARS, stdin));
+void skipGraph(int lineToSkip) {
+    for (int i = 0; i < lineToSkip; i++) {
+        readIntegerUntil('\n');
     }
 }
 
