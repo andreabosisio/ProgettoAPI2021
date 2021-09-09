@@ -226,7 +226,7 @@ void updateRank(int graphID, unsigned int shortestPathsSum) {
     toAdd.distSum = shortestPathsSum;
 
     if (rankHeap->size >= k) {
-        if (shortestPathsSum >= getLastRankedDist()) {
+        if (shortestPathsSum >= getLastRankedDist()) { //maybe unnecessary
             return;
         }
         rankHeap->rank[0] = toAdd;
