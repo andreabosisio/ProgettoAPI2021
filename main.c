@@ -149,7 +149,7 @@ void readAndComputeGraph(int graphID) {
             currGraph[0][vertexNeighborIndex] = readIntegerUntil('\n');
 
         //non necessary check: speeds up the computation on inputs where k is small (more "competitive" TopK)
-        //if one of first vertex's distance is already worst than the last ranked, skip the graph.
+        //if one of first vertex distance is already worst than the last ranked, skip the graph.
         if (rankHeapSize >= k && vertexNeighborIndex != 0 && currGraph[0][vertexNeighborIndex] >= lastRankedDist) {
             if (vertexNeighborIndex < d - 1)
                 skipGraph(d);
