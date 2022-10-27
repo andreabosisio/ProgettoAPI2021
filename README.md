@@ -16,4 +16,4 @@ Data structures used: *binary heaps* for both managing the dynamic ranking and t
 //todo : complexity
 
 ## Final Grade 
-This project has obtained the following evaluation (by an automatic evaluator): *30/30 cum Laude*.
+This project has obtained the following evaluation: *30/30 cum Laude* (an automatic scoring system was used).
